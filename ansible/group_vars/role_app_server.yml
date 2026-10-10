@@ -1,0 +1,3 @@
+---
+# to check if this variable work we can run "ansible role_app_server -m debug -a "var=ansible_ssh_common_args""
+ansible_ssh_common_args: "-o ProxyJump=ec2-user@{{ hostvars[groups['role_web_proxy'][0]]['ansible_host'] }}"

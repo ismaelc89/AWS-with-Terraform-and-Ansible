@@ -1,0 +1,12 @@
+---
+- name: Deploy Private Application
+  hosts: role_app_server
+  become: true
+  roles:
+    - app_server
+
+- name: Deploy Public Proxy
+  hosts: role_web_proxy
+  become: true
+  roles:
+    - web_proxy

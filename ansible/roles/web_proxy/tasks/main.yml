@@ -1,0 +1,20 @@
+---
+- name: Install Nginx
+  ansible.builtin.dnf:
+    name: nginx
+    state: present
+
+- name: Enable and start Nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Copy Nginx reverse Template
+  ansible.builtin.template:
+    src: nginx_proxy.conf.j2
+    dest: /etc/nginx/conf.d/reverse_proxy.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Nginx
