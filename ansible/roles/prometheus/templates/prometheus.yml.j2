@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'aws-2tier-infrastructure'
+    static_configs:
+      - targets:
+          - 'localhost:9100'  # Public proxy scrapes itself locally
+{% for host in groups['role_app_server'] %}
+          - '{{ hostvars[host].ansible_host }}:9100'  # Dynamically adds all app servers
+{% endfor %}

@@ -9,10 +9,11 @@ hostnames:
   - ip-address
   - private-ip-address
 
-#Whith this we are grouping the hosts, role_app_server and role_web_proxy
+# Whith this we are grouping the hosts, role_app_server and role_web_proxy
 keyed_groups:
   - key: tags.Role
     prefix: role
 
 compose:
+# Set ansible_host to the public IP if available, falling back to private IP
   ansible_host: public_ip_address | default(private_ip_address)

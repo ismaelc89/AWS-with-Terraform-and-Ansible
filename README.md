@@ -1,49 +1,55 @@
-# AWS-with-Terraform-and-Ansible
+# Lab5: AWS 2-Tier Architecture with Centralized Observability
 
-Repo to create a basic AWS architecture using Terraform as IaC and Ansible as CM
+This repository contains the infrastructure-as-code and configuration management playbooks required to deploy a scalable 2-tier architecture on AWS with an integrated, GitOps-driven observability stack powered by **Prometheus** and **Grafana**.
 
-# Architecture Overview
+---
+
+## 🏛️ Architecture Overview
+
+The infrastructure consists of a public-facing proxy layer and an isolated private application layer running on **Amazon Linux 2023**:
+
 ```
-Internet
-                  │
-                  ▼
-        ┌───────────────────┐
-        │ Internet Gateway  │
-        └─────────┬─────────┘
-                  │
- ┌────────────────┼────────────────────────────────────────────┐
- │ VPC (10.0.0.0/16)                                           │
- │                                                             │
- │   ┌─────────────────────────────────────────────────────┐   │
- │   │ Public Subnet (10.0.1.0/24)                         │   │
- │   │   - Route Table -> Internet Gateway                 │   │
- │   │                                                     │   │
- │   │   ┌─────────────────────────────────────────────┐   │   │
- │   │   │ Public EC2: Nginx Reverse Proxy             │   │   │
- │   │   │ Security Group: Allow HTTP (80) & SSH (22)  │   │   │
- │   │   └──────────────────────┬──────────────────────┘   │   │
- │   └──────────────────────────┼──────────────────────────┘   │
- │                              │ Internal Traffic (Port 8080) │
- │   ┌──────────────────────────┼──────────────────────────┐   │
- │   │ Private Subnet (10.0.2.0/24)                        │   │
- │   │   - Route Table -> Local Only (No Internet)         │   │
- │   │                                                     │   │
- │   │   ┌─────────────────────────────────────────────┐   │   │
- │   │   │ Private EC2: Application Server             │   │   │
- │   │   │ Security Group: Allow Port 8080 & SSH (22)  │   │   │
- │   │   │                 ONLY from Public EC2 SG     │   │   │
- │   │   └─────────────────────────────────────────────┘   │   │
- │   └─────────────────────────────────────────────────────┘   │
- └─────────────────────────────────────────────────────────────┘
+[ Local Admin / Ansible ]
+          |
+          |  SSH Jump / Agent Forwarding
+          v
++-------------------------------------------------------+
+| Public Subnet                                         |
+|                                                       |
+|  +-------------------------------------------------+  |
+|  | Web Proxy Server (Central Observability Node)   |  |
+|  |  - Public IP                                    |  |
+|  |  - Prometheus Server (Scraper)                  |  |
+|  |  - Grafana Visualizations                       |  |
+|  |  - Node Exporter (:9100)                        |  |
+|  +-------------------------------------------------+  |
++-------------------------------------------------------+
+          |
+          | Internal VPC Traffic (IPv4)
+          v
++-------------------------------------------------------+
+| Private Subnet                                        |
+|                                                       |
+|  +-------------------------------------------------+  |
+|  | Private Application Server                      |  |
+|  |  - Private IP (10.0.2.x)                        |  |
+|  |  - Node Exporter (:9100)                        |  |
+|  +-------------------------------------------------+  |
++-------------------------------------------------------+
 ```
 
-# Repository Layout
+### Key Components
+1. **Public Proxy / Bastion Host**: Serves as the ingress point and hosts the centralized monitoring stack (Prometheus & Grafana).
+2. **Private App Server**: Resides in a private subnet without public IPv4 exposure. Reachable via `ProxyJump` configuration.
+---
+
+## Repository Layout
 ```
 .
 ├── ansible
 │   ├── ansible.cfg                         # Main configuration to be used with AWS
 │   ├── group_vars
-│   │   └── role_app_server.yml             # Vars to acess the private server
+│   │   └── role_app_server.yml.            # Variables used for group role_app_server
 │   ├── inventory
 │   │   └── aws_ec2.yml                     # Dynamuc AWS EC2 inventory
 │   ├── roles
@@ -52,22 +58,44 @@ Internet
 │   │   │   │   └── main.yml                # tasks to be perform for app_server role
 │   │   │   └── templates
 │   │   │       └── index.html.j2           # index file used for the app_server
+│   │   ├── grafana
+│   │   │   ├── handlers
+│   │   │   ├── tasks
+│   │   │   │   └── main.yml                # tasks to be perform for grafana role
+│   │   │   └── templates
+│   │   ├── node_exporter
+│   │   │   ├── handlers
+│   │   │   │   └── main.yml                # handlers to be perform for node_exporter role
+│   │   │   └── tasks
+│   │   │       └── main.yml                # tasks to be perform for node_exporter role
+│   │   ├── prometheus
+│   │   │   ├── handlers
+│   │   │   │   └── main.yml                # handlers to be perform for prometheus role
+│   │   │   ├── tasks
+│   │   │   │   └── main.yml                # tasks to be perform for prometheus role
+│   │   │   └── templates
+│   │   │       └── prometheus.yml.j2       # template used for prometheus role
+│   │   ├── swap
+│   │   │   └── tasks
+│   │   │       └── main.yml                # task to be perform for swap role
 │   │   └── web_proxy
 │   │       ├── handlers
-│   │       │   └── main.yml                # handler to reload nginx service
+│   │       │   └── main.yml                # handlers to be perform for web_proxy role
 │   │       ├── tasks
-│   │       │   └── main.yml                # tasks to be perform for web_proxy role
+│   │       │   └── main.yml                # tasks to perform for web_proxy role
 │   │       └── templates
-│   │           └── nginx_proxy.conf.j2     # template used for the web_proxy config
+│   │           └── nginx_proxy.conf.j2     # template used for web_proxy role
 │   └── site.yml                            # main playbook
 ├── README.md                               # This README file
 └── terraform
+    ├── backend.tf                          # S3 backend used to store state file
     ├── datasource.tf                       # AMI and instnace_type datasource
     ├── main.tf                             # Main terraform file
     ├── outpurs.tf                          # Output to get public ip and AZs
     ├── providers.tf                        # AWS provider confif
     └── variables.tf                        # Environment variable used
 ```
+
 # Prerequisites
 
 - Terraform CLI installed (v1.0.0+).
@@ -118,19 +146,33 @@ If you get any error please confirm that the path of the `private_key_file` is t
 ansible-playbook site.yml
 ```
 
-# Verification & Testing
-1. Allow some minutes for the Ansible Playbook to finish installing and initializing Apache service.
+## 🛠️ Ansible Automation & Swap Provisioning
 
-2. Verify HTTP routing via `curl`:
-```
-curl http://<PUBLIC_IP>
-```
-3. Alternatively, open your browser and navigate to:
-```
-http://<PUBLIC_IP>
-```
-# Automated Teardown
-To avoid incurring cloud provider charges after testing, destroy all provisioned infrastructure with a single command:
-```
-terraform destroy -auto-approve
-```
+The Ansible playbook manages system dependencies, swap management, and metric exporter deployment across all targets.
+
+## 📊 Observability Stack Configuration
+
+### 1. Prometheus Scrape Targets
+Prometheus runs on the Public Proxy and pulls metrics every 15 seconds from all nodes across the environment.
+
+* **Proxy Node Metric Endpoint**: `localhost:9100`
+* **App Node Metric Endpoint**: `10.0.2.x:9100`
+* **Grafana Endpoint**: `<PUBLIC_IP:3000>` 
+    - Username/Password is admin/admin
+
+### 2. Core PromQL Queries Used in Grafana
+
+**CPU Utilization (%)**:
+  ```promql
+  100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+  ```
+
+**CMemory Usage (%)**:
+  ```promql
+  (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+  ```
+
+**Root Disk Space Usage (%)**:
+  ```promql
+  (1 - (node_filesystem_free_bytes{mountpoint="/", fstype!~"tmpfs|fuse.lxc"} / node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|fuse.lxc"})) * 100
+  ```

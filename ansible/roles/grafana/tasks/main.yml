@@ -1,0 +1,20 @@
+---
+- name: Add Grafana RPM repository
+  ansible.builtin.yum_repository:
+    name: grafana
+    description: Grafana Repository
+    baseurl: https://rpm.grafana.com
+    gpgkey: https://rpm.grafana.com/gpg.key
+    gpgcheck: true
+    enabled: true
+
+- name: Install Grafana
+  ansible.builtin.dnf:
+    name: grafana
+    state: present
+
+- name: Start and enable Grafana service
+  ansible.builtin.systemd:
+    name: grafana-server
+    state: started
+    enabled: true

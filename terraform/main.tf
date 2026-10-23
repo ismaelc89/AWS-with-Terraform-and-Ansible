@@ -18,7 +18,7 @@ resource "aws_subnet" "public_subnet" {
   vpc_id                  = aws_vpc.demo_vpc.id
   cidr_block              = "10.0.1.0/24"
   map_public_ip_on_launch = "true"
-  availability_zone = data.aws_ec2_instance_type_offerings.t3_micro.locations[0]
+  availability_zone       = data.aws_ec2_instance_type_offerings.t3_micro.locations[0]
 
   tags = {
     Name = "demo_public_subnet"
@@ -26,8 +26,8 @@ resource "aws_subnet" "public_subnet" {
 }
 
 resource "aws_subnet" "private_subnet" {
-  vpc_id     = aws_vpc.demo_vpc.id
-  cidr_block = "10.0.2.0/24"
+  vpc_id            = aws_vpc.demo_vpc.id
+  cidr_block        = "10.0.2.0/24"
   availability_zone = data.aws_ec2_instance_type_offerings.t3_micro.locations[0]
 
   tags = {
@@ -78,6 +78,29 @@ resource "aws_vpc_security_group_ingress_rule" "allow_ssh" {
   from_port         = 22
   to_port           = 22
 }
+resource "aws_vpc_security_group_ingress_rule" "allow_prometheus" {
+  security_group_id = aws_security_group.public_ec2_sg.id
+  ip_protocol       = "tcp"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 9090
+  to_port           = 9090
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_node_exporter" {
+  security_group_id = aws_security_group.public_ec2_sg.id
+  ip_protocol       = "tcp"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 9100
+  to_port           = 9100
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_grafana" {
+  security_group_id = aws_security_group.public_ec2_sg.id
+  ip_protocol       = "tcp"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 3000
+  to_port           = 3000
+}
 
 resource "aws_vpc_security_group_egress_rule" "allow_all" {
   security_group_id = aws_security_group.public_ec2_sg.id
@@ -112,6 +135,14 @@ resource "aws_vpc_security_group_ingress_rule" "allow_ssh_from_publicsg" {
   to_port                      = 22
 }
 
+resource "aws_vpc_security_group_ingress_rule" "allow_node_exporter_from_publicsg" {
+  security_group_id            = aws_security_group.private_ec2_sg.id
+  referenced_security_group_id = aws_security_group.public_ec2_sg.id
+  ip_protocol                  = "tcp"
+  from_port                    = 9100
+  to_port                      = 9100
+}
+
 resource "aws_vpc_security_group_egress_rule" "allow_all_egress" {
   security_group_id = aws_security_group.private_ec2_sg.id
   ip_protocol       = "-1"
@@ -126,9 +157,9 @@ resource "aws_instance" "public_web" {
   vpc_security_group_ids = [aws_security_group.public_ec2_sg.id]
 
   tags = {
-    Name = "DemoPublicWebInstance"
+    Name        = "DemoPublicWebInstance"
     Environment = var.instance_env
-    Role = "web_proxy"
+    Role        = "web_proxy"
   }
 }
 
@@ -140,9 +171,9 @@ resource "aws_instance" "private_app" {
   vpc_security_group_ids = [aws_security_group.private_ec2_sg.id]
 
   tags = {
-    Name = "DemoPrivateWebInstance"
+    Name        = "DemoPrivateWebInstance"
     Environment = var.instance_env
-    Role = "app_server"
+    Role        = "app_server"
   }
 }
 

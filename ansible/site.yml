@@ -10,3 +10,17 @@
   become: true
   roles:
     - web_proxy
+
+- name: Configure Node exporter
+  hosts: all
+  become: true
+  roles:
+    - node_exporter
+
+- name: Configure Observability Stack
+  hosts: role_web_proxy
+  become: true
+  roles:
+    - swap
+    - prometheus
+    - grafana

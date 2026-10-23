@@ -1,0 +1,61 @@
+---
+- name: Create node_exporter system user
+  ansible.builtin.user:
+    name: node_exporter
+    system: true
+    shell: /sbin/nologin
+
+- name: Download Node Exporter tarball on the controller (runs once)
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz"
+    dest: "/tmp/node_exporter-1.7.0.linux-amd64.tar.gz"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Copy Node Exporter tarball to remote hosts (Public and Private)
+  ansible.builtin.copy:
+    src: "/tmp/node_exporter-1.7.0.linux-amd64.tar.gz"
+    dest: "/tmp/node_exporter.tar.gz"
+    mode: '0644'
+
+- name: Extract Node Exporter on remote hosts
+  ansible.builtin.unarchive:
+    src: "/tmp/node_exporter.tar.gz"
+    dest: "/tmp"
+    remote_src: true
+
+- name: Move node_exporter binary to /usr/local/bin
+  ansible.builtin.copy:
+    src: "/tmp/node_exporter-1.7.0.linux-amd64/node_exporter"
+    dest: "/usr/local/bin/node_exporter"
+    remote_src: true
+    mode: '0755'
+    owner: node_exporter
+    group: node_exporter
+
+- name: Create systemd service for Node Exporter
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/node_exporter.service
+    content: |
+      [Unit]
+      Description=Prometheus Node Exporter
+      After=network.target
+
+      [Service]
+      User=node_exporter
+      ExecStart=/usr/local/bin/node_exporter
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    group: root
+    mode: '0755'
+  notify: Restart node_exporter
+
+- name: Start and enable node_exporter service
+  ansible.builtin.systemd:
+    name: node_exporter
+    state: started
+    enabled: true
